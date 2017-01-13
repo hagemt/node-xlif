@@ -1,0 +1,44 @@
+{
+  "name": "xfil",
+  "version": "0.1.0",
+  "description": "LIFX clients written in ES6",
+  "homepage": "https://github.com/hagemt/node-xfil#readme",
+  "author": "Tor E Hagemann <tor.hagemann@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hagemt/node-xfil/issues"
+  },
+  "dependencies": {
+    "bunyan": "^1",
+    "config": "^1",
+    "lodash": "^4",
+    "request": "^2"
+  },
+  "devDependencies": {
+    "eslint": "^3",
+    "mocha": "^3",
+    "nyc": "^10",
+    "should": "^11"
+  },
+  "eslint": {
+    "extends": "eslint:recommended"
+  },
+  "keywords": [
+    "LIFX",
+    "smart",
+    "light",
+    "bulb",
+    "client",
+    "ES6"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hagemt/node-xfil.git"
+  },
+  "scripts": {
+    "eslint": "eslint .",
+    "start": "node RESTv1.js | bunyan --level trace",
+    "test": "nyc mocha test | bunyan --level fatal",
+    "posttest": "npm run eslint"
+  }
+}

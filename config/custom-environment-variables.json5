@@ -1,0 +1,5 @@
+{
+	client: {
+		secret: 'LIFX_CLIENT_SECRET',
+	},
+}
