@@ -4,11 +4,13 @@ const Client = require('../LANv2');
 describe('Client', () => {
 
 	describe('constructor', () => {
-		it('is not supported, use Client.create');
+		it('must be passed a bound Socket', () => {
+			(() => new Client()).should.throw();
+		});
 	});
 
-	describe('static listen', () => {
-		it('binds a new UDPv4 socket', () => {
+	describe('static create', () => {
+		it('binds a new UDPv4 broadcast socket', () => {
 			return Client.create().then((client) => {
 				client.should.be.instanceof(Client);
 				client.should.have.property('socket');

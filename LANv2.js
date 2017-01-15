@@ -1,6 +1,6 @@
 /* eslint-env es6, node */
-const EventEmitter = require('events');
-const dgram = require('dgram');
+const { createSocket } = require('dgram');
+const { EventEmitter } = require('events');
 
 const _ = require('lodash');
 const Bunyan = require('bunyan');
@@ -47,7 +47,7 @@ const createMessage = (client, payload) => {
 	message[0] = (message.length & 0xFF00) >> 8;
 	message[1] = (message.length & 0x00FF) >> 0;
 	message[2] = 0b00010100; // see above (OOTAPPPP)
-	message.fill(client.nonce, 4, 8); // see Frame
+	message.fill(Buffer.from(client.nonce), 4, 8);
 	message[23] = nextByte(); // sequence Number
 	// decorate with Functions for bit twiddling?
 	return message; // set discovery, target, type
@@ -81,10 +81,10 @@ class Client {
 		socket.on('message', (...args) => {
 			eventsEmitter.emit('message', ...args);
 		});
-		const nonce = Object.freeze(Buffer.from(nonceBytes(4)));
+		const nonceArray = Object.freeze(nonceBytes(4)); // customize?
 		Object.defineProperty(this, 'events', { value: eventsEmitter });
 		Object.defineProperty(this, 'log', { value: childLogger });
-		Object.defineProperty(this, 'nonce', { value: nonce });
+		Object.defineProperty(this, 'nonce', { value: nonceArray });
 		Object.defineProperty(this, 'socket', { value: socket });
 		Object.freeze(this);
 	}
@@ -105,7 +105,7 @@ class Client {
 
 	static createBroadcastSocket (...args) {
 		const { type = 'udp4', reuseAddr = true } = Object.assign({}, ...args);
-		const socket = dgram.createSocket({ type, reuseAddr });
+		const socket = createSocket({ type, reuseAddr });
 		socket.once('listening', () => {
 			socket.setBroadcast(true); // SO_BROADCAST
 		});
@@ -151,7 +151,7 @@ class Client {
 				const message = createMessage(this, payload);
 				return send(this.socket, message); // port?
 			};
-			this.socket.on('message', consume);
+			this.socket.on('message', consume); // listen for response
 			trigger().then(() => setTimeout(cleanup, timeout), reject);
 		});
 	}

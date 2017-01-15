@@ -1,7 +1,6 @@
 /* eslint-env es6, node */
 const EventEmitter = require('events');
 const HTTP = require('http');
-const URL = require('url');
 
 const _ = require('lodash');
 const Bunyan = require('bunyan');
@@ -9,10 +8,7 @@ const request = require('request');
 
 const defaultEventEmitter = new EventEmitter();
 
-defaultEventEmitter.on('results', (results) => {
-	rootLogger.info({ results }, 'from RESTv1 Client');
-});
-
+/* istanbul ignore next */
 defaultEventEmitter.on('error', (error) => {
 	rootLogger.warn(error, 'from RESTv1 Client');
 });
@@ -22,44 +18,41 @@ const isValidNumber = statusCode => FULFILLING_STATUS_CODES.has(statusCode);
 const isValidString = maybeString => _.isString(maybeString) && !!maybeString;
 
 class ResponseError extends Error {
-
 	constructor (client, object) {
 		const statusCode = _.get(object, 'statusCode', 418);
 		super(_.get(HTTP.STATUS_CODES, statusCode, 'Unknown'));
 		Object.defineProperty(this, 'response', { value: object });
 		Object.freeze(this);
-		client.log.debug(this);
 	}
-
-	inspect () {
-		const method = _.get(this.response, 'request.method');
-		const statusCode = _.get(this.response, 'statusCode');
-		const url = URL.format(_.get(this.response, 'request.uri'));
-		return `${method} ${url} => ${statusCode} ${this.message}`;
-	}
-
 }
 
 class ResponseResult {
-
 	constructor (client, object) {
 		Object.assign(this, object);
 		Object.freeze(this);
-		client.log.debug(this);
 	}
-
-	inspect () {
-		return `Result[${this.id}]`;
-	}
-
 }
+
+const colors = new Map(); // shared between instances
+
+const memoize = (cache, ...args) => {
+	const memoized = Object.assign(_.memoize(...args), { cache });
+	return key => Promise.resolve(memoized(key))
+		.then((result) => {
+			cache.set(key, result);
+			return result;
+		})
+		.catch((reason) => {
+			cache.delete(key); // don't keep failures
+			return Promise.reject(reason);
+		});
+};
 
 const rootLogger = Bunyan.createLogger({ name: 'LIFX' });
 
 class Client {
 
-	constructor (...args) {
-		const options = Object.assign({}, ...args);
+	constructor (options) {
 		const eventsEmitter = _.get(options, 'events', defaultEventEmitter);
 		const parentLogger = _.get(options, 'log', rootLogger);
 		const secretBearerToken = _.get(options, 'secret');
@@ -77,8 +70,10 @@ class Client {
 			},
 			json: true,
 		});
+		Object.defineProperty(this, 'colors', { value: colors });
 		Object.defineProperty(this, 'events', { value: eventsEmitter });
 		Object.defineProperty(this, 'log', { value: childLogger });
+		this.validateColor = memoize(this.colors, this.validateColor.bind(this));
 		Object.freeze(this);
 	}
 
@@ -90,18 +85,18 @@ class Client {
 		return this.log.fields.API;
 	}
 
-	getLights (selector = 'all') {
+	inspect () {
+		return `Client[${this.version}]`;
+	}
+
+	listLights (selector = 'all') {
 		return this.send({ method: 'GET', uri: `/v1/lights/${selector}` })
 			.then(results => results.map(({ id }) => new Selection(this, `id:${id}`)));
 	}
 
-	getScenes () {
+	listScenes () {
 		return this.send({ method: 'GET', uri: '/v1/scenes' })
-			.then(results => results.map(scene => new Scene(this, scene)));
-	}
-
-	inspect () {
-		return `Client[${this.version}]`;
+			.then(results => results.map(({ uuid }) => new Scene(this, uuid)));
 	}
 
 	send (...args) {
@@ -115,28 +110,30 @@ class Client {
 			});
 		}).then((body) => {
 			const { error: string, results: array } = Object(body);
+			if (_.isArrayLikeObject(array)) {
+				const results = Array.from(array, e => new ResponseResult(this, e));
+				this.events.emit('results', ...results);
+				return results;
+			}
+			/* istanbul ignore next */
 			if (_.isString(string)) {
 				const error = new Error(string);
 				this.events.emit('error', error);
 				return Promise.reject(error);
-			}
-			if (_.isArrayLikeObject(array)) {
-				const results = Array.from(array, e => new ResponseResult(this, e));
-				this.events.emit('results', results);
-				return results;
 			}
 			return body;
 		});
 	}
 
 	setStates (defaults, ...states) {
-		const body = { defaults, states };
+		const defaultsObject = Object(defaults);
+		const statesArray = Array.from(states, Object);
+		const body = { defaults: defaultsObject, states: statesArray };
 		return this.send({ body, method: 'PUT', uri: '/v1/lights/states' })
 			.then(results => results.map(({ operation }) => operation));
 	}
 
 	validateColor (string) {
-		// TODO (tohagema): would make sense to cache these results?
 		return this.send({ method: 'GET', qs: { string }, uri: '/v1/color' });
 	}
 
@@ -151,8 +148,7 @@ class Selection {
 		if (!_.isString(selector)) {
 			throw new TypeError('selector String required');
 		}
-		this.client = client;
-		this.selector = selector;
+		Object.assign(this, { client, selector });
 		Object.freeze(this);
 	}
 
@@ -161,8 +157,8 @@ class Selection {
 	}
 
 	set breathe (body) {
-		const uri = `/lights/${this.selector}/effects/breathe`;
-		return this.client.send({ body, method: 'POST', uri });
+		const uri = `/v1/lights/${this.selector}/effects/breathe`;
+		this.client.send({ body, method: 'POST', uri });
 	}
 
 	set cycle (body) {
@@ -172,7 +168,7 @@ class Selection {
 
 	set pulse (body) {
 		const uri = `/v1/lights/${this.selector}/effects/pulse`;
-		return this.client.send({ body, method: 'POST', uri });
+		this.client.send({ body, method: 'POST', uri });
 	}
 
 	get state () {
@@ -182,18 +178,18 @@ class Selection {
 
 	set state (body) {
 		const uri = `/v1/lights/${this.selector}/state`;
-		return this.client.send({ body, method: 'PUT', uri });
+		this.client.send({ body, method: 'PUT', uri });
 	}
 
 	set toggle (body) {
 		const uri = `/v1/lights/${this.selector}/toggle`;
-		return this.client.send({ body, method: 'POST', uri });
+		this.client.send({ body, method: 'POST', uri });
 	}
 
 }
 
-const action = _.memoize((t, T) => new T(t));
-action.cache = new WeakMap(); // re-use Actions
+const staticFactory = _.memoize((t, T) => new T(t));
+staticFactory.cache = new WeakMap(); // re-use Actions
 
 class Action {
 
@@ -207,7 +203,7 @@ class Action {
 
 	activate (selection, ...args) {
 		if (!(selection instanceof Selection)) {
-			throw new TypeError('Action#select requires Selection');
+			return Promise.reject(new TypeError('#activate requires Selection'));
 		}
 		return selection.state.then((oldState) => {
 			return this.call(selection, ...args) // => Promise<ignored:Any>
@@ -216,14 +212,8 @@ class Action {
 	}
 
 	call (object, ...args) {
-		const log = _.get(object, 'log', rootLogger);
-		log.trace({ action: this, arguments: args, binding: object });
 		return Promise.all(args) // => Promise<arguments:Array>
-			.then(array => this.function.apply(object, array))
-			.catch((reason) => {
-				log.warn(reason, 'during Action#call');
-				return Promise.reject(reason); // don't?
-			});
+			.then(array => this.function.apply(object, array));
 	}
 
 	get name () {
@@ -256,7 +246,7 @@ class Action {
 	}
 
 	static fromFunction (unboundFunction) {
-		return action(unboundFunction, Action);
+		return staticFactory(unboundFunction, Action);
 	}
 
 	static supports (maybeFunction) {
@@ -287,18 +277,21 @@ class Action {
 
 }
 
+const action = Action.fromFunction(function activate (body) {
+	const uri = `/v1/scenes/scene_id:${this.uuid}/activate`;
+	return this.client.send({ body, method: 'PUT', uri });
+});
+
 class Scene {
 
-	constructor (client, ...args) {
+	constructor (client, uuid) {
 		if (!(client instanceof Client)) {
 			throw new TypeError('RESTv1 Client required');
 		}
-		const action = Action.fromFunction(function activate (body) {
-			const uri = `/v1/scenes/scene_id:${this.uuid}/activate`;
-			return this.client.send({ body, method: 'PUT', uri });
-		});
-		const { uuid } = Object.assign(this, ...args, { action, client });
-		if (!isValidString(uuid)) throw new TypeError('UUID required');
+		if (!isValidString(uuid)) {
+			throw new TypeError('Scene UUID required');
+		}
+		Object.assign(this, { action, client, uuid });
 		Object.freeze(this);
 	}
 
@@ -319,13 +312,14 @@ module.exports = Object.assign(Client, { default: Client });
 
 const secret = require('config').get('client.secret');
 
+/* istanbul ignore next */
 if (!module.parent) {
 	const action = Action.togglePower();
 	const client = Client.fromSecret(secret);
 	client.getLights('all') // => Promise<all:Array<one:Selection>>
 		.then(all => Promise.all(all.map(one => action.activate(one))))
 		.then((results) => {
-			client.log.info({ results });
+			client.log.trace({ results });
 			process.exit();
 		}, (reason) => {
 			client.log.fatal(reason);

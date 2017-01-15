@@ -43,8 +43,8 @@ The most straightforward way to use a Client is to call `#setStates` like so:
 
 ```
 const client = Client.fromSecret(...); // for Promise<responses:Array>
-client.setStates({ duration: 1.0 }, [{ selector: 'all', power: 'on' }]);
-// => all lights associated with the LIFX secret power on (within 1s)
+client.setStates({ duration: 1.0 }, { power: 'on', selector: 'all' });
+// => all lights associated with the Client secret power on (within 1s)
 ```
 
 ### Selection
@@ -67,11 +67,11 @@ all.state = { color: 'green' }; // for example
 all.toggle = { duration: 1.0 }; // 1s fade on/off
 ```
 
-`N.B. Client#getLights(selection = 'all') => Promise<Array<Selection>>`
+N.B. `Client#listLights(selection = 'all') => Promise<Array<Selection>>`
 
 ### Scene
 
-A Scene is a LIFX concept; with a Client, it is easy to `#getScenes` via Promise.
+A Scene is a LIFX concept; with a Client, it is easy to `#listScenes` via Promise.
 
 Much like an Action, Scene instances can be `#activated`, which simply:
 
