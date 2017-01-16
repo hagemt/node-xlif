@@ -33,9 +33,9 @@ The context is designed (but not required) to be `#call`'d on a Selection (see b
 
 An Action may only `#activate` upon a Selection, which wraps additional logic as follows:
 
-1) The "old" (prior) `state` of the Selection, `s`, is obtained via the paired Client.
-2) The Action is `#call`'d, binding `s` along with the other arguments passed to `#activate`.
-3) The "new" (posterior) `state` of the Selection is obtained, then `return [old, new];`.
+1. The "old" (prior) `state` of the Selection, `s`, is obtained via the paired Client.
+2. The Action is `#call`'d, binding `s` along with the other arguments passed to `#activate`.
+3. The "new" (posterior) `state` of the Selection is obtained, then `return [old, new];`.
 
 Many static factory methods are provided to create your own re-useable Action instances.
 
@@ -75,8 +75,8 @@ A Scene is a LIFX concept; with a Client, it is easy to `#listScenes` via Promis
 
 Much like an Action, Scene instances can be `#activated`, which simply:
 
-1) Will `#call` an internal Action binding the Scene (`this`) with passed arguments.
-2) N.B. Unlike a pure Action, a Scene DOES NOT operate (activate) upon a Selection.
+1. Will `#call` an internal Action binding the Scene (`this`) with passed arguments.
+2. N.B. Unlike a pure Action, a Scene DOES NOT operate (activate) upon a Selection.
 
 Currently, the only supported field by the REST API (v1) is `duration`.
 
