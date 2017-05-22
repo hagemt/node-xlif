@@ -3,11 +3,12 @@ const { createSocket } = require('dgram')
 const { EventEmitter } = require('events')
 
 const _ = require('lodash')
-const Bunyan = require('bunyan')
+
+const Logging = require('./logging.js')
+const rootLogger = Logging.getLogger()
 
 const nonceByte = (r = Math.random()) => Math.floor(r * 0x100)
 const nonceBytes = (length = 4) => Array.from({ length }, nonceByte)
-const rootLogger = Bunyan.createLogger({ name: 'LIFX' }) // API: LANv2
 
 const nextByteValue = number => (number + 1) % 0x100 // => Number in [0, 255]
 const nextByte = () => nextByte.value = nextByteValue(nextByte.value)

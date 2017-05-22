@@ -1,5 +1,11 @@
 /* eslint-env es6, node */
-const RESTv1 = require('./clients/RESTv1.js')
-const LANv2 = require('./clients/LANv2.js')
+const config = require('config')
 
-module.exports = { RESTv1, LANv2 }
+const HTTPv1 = require('./clients/HTTPv1.js')
+//const LANv2 = require('./clients/LANv2.js')
+
+const secret = config.get('client.secret')
+const instance = HTTPv1.fromSecret(secret)
+
+module.exports = HTTPv1 // class
+module.exports.default = instance
