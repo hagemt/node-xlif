@@ -3,7 +3,7 @@ const HTTP = require('http')
 
 const config = require('config')
 
-const Client = require('../RESTv1')
+const Client = require('../clients/RESTv1.js')
 
 describe('Client', () => {
 

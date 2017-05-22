@@ -1,5 +1,5 @@
 /* eslint-env es6, mocha, node */
-const Client = require('../LANv2')
+const Client = require('../clients/LANv2.js')
 
 describe('Client', () => {
 
