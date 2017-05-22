@@ -1,21 +1,21 @@
 /* eslint-env es6, mocha, node */
-const Client = require('../LANv2');
+const Client = require('../LANv2')
 
 describe('Client', () => {
 
 	describe('constructor', () => {
 		it('must be passed a bound Socket', () => {
-			(() => new Client()).should.throw();
-		});
-	});
+			(() => new Client()).should.throw()
+		})
+	})
 
 	describe('static create', () => {
 		it('binds a new UDPv4 broadcast socket', () => {
 			return Client.create().then((client) => {
-				client.should.be.instanceof(Client);
-				client.should.have.property('socket');
-			});
-		});
-	});
+				client.should.be.instanceof(Client)
+				client.should.have.property('socket')
+			})
+		})
+	})
 
-});
+})
