@@ -36,7 +36,7 @@
     "url": "git+https://github.com/hagemt/node-xfil.git"
   },
   "scripts": {
-    "eslint": "eslint .",
+    "eslint": "eslint .eslintrc.js **/*.js",
     "start": "node RESTv1.js | bunyan --level trace",
     "test": "nyc mocha test | bunyan --level fatal",
     "posttest": "npm run eslint"
